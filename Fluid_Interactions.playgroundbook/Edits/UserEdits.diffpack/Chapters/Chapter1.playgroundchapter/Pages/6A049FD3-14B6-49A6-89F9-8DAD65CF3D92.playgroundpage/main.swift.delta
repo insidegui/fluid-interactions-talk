@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BaseFile</key>
+	<string>Chapters/Chapter1.playgroundchapter/Pages/Template.playgroundpage/main.swift</string>
+	<key>Diffs</key>
+	<array>
+		<dict>
+			<key>ModifiedContent</key>
+			<string>
+
+import UIKit
+import PlaygroundSupport
+
+final class DemoController: UIViewController {
+    
+    private let initialPosition = CGPoint(x: 50, y: 50)
+    
+    private lazy var movableView: UIView = {
+        let v = UIView(frame: CGRect(origin: initialPosition, size: CGSize(width: 100, height: 100)))
+        v.backgroundColor = .systemBlue
+        v.layer.cornerRadius = 22
+        v.layer.cornerCurve = .continuous
+        return v
+    }()
+    
+    override func loadView() {
+        view = UIView()
+        view.backgroundColor = .systemBackground
+        
+        view.addSubview(movableView)
+        
+        let gesture = InstantPanGestureRecognizer(target: self, action: #selector(handlePan))
+        view.addGestureRecognizer(gesture)
+    }
+    
+    private var referencePoint: CGPoint = .zero
+    
+    @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
+        let location = recognizer.location(in: view)
+        
+        switch recognizer.state {
+        case .began:
+            animator?.stopAnimation(true)
+            
+            movableView.origin = location
+        case .changed:
+            movableView.origin = location
+        case .ended, .cancelled:
+            snapBack()
+        default:
+            break
+        }
+    }
+    
+    private var animator: UIViewPropertyAnimator?
+    
+    private func snapBack() {
+        animator = UIViewPropertyAnimator(duration: 5, curve: .easeInOut, animations: nil)
+        animator?.isUserInteractionEnabled = true
+        animator?.isInterruptible = true
+        animator?.addAnimations {
+            self.movableView.origin = self.initialPosition
+        }
+        animator?.startAnimation()
+    }
+    
+}
+
+PlaygroundPage.current.liveView = DemoController()
+</string>
+			<key>ModifiedRange</key>
+			<string>{1, 1741}</string>
+			<key>OriginalContent</key>
+			<string></string>
+			<key>OriginalRange</key>
+			<string>{1, 0}</string>
+		</dict>
+	</array>
+	<key>FormatVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>
