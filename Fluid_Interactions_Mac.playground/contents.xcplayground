@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<playground version='6.0' target-platform='ios'>
+    <pages>
+        <page name='1 - Simple Move'/>
+        <page name='2 - Center Correction'/>
+        <page name='3 - Bounce Back'/>
+        <page name='4 - Bounce Back Interruptible'/>
+        <page name='5 - Snap with Momentum'/>
+        <page name='6 - Snap with Projection'/>
+        <page name='7 - Snap with Projection++'/>
+    </pages>
+</playground>

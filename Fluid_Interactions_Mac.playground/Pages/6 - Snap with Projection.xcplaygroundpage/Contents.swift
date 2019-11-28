@@ -1,0 +1,148 @@
+import UIKit
+import PlaygroundSupport
+
+final class DemoController: UIViewController {
+
+    private lazy var movableView: UIView = {
+        let v = UIView(frame: .zero)
+        v.backgroundColor = .systemBlue
+        v.layer.cornerRadius = 22
+        v.layer.cornerCurve = .continuous
+        return v
+    }()
+
+    private func makeDockingStation() -> UIView {
+        let v = UIView()
+        v.backgroundColor = .systemGray6
+        v.layer.cornerRadius = 22
+        v.layer.cornerCurve = .continuous
+        return v
+    }
+
+    private lazy var dockingStationTopRight: UIView = {
+        makeDockingStation()
+    }()
+    private lazy var dockingStationBottomRight: UIView = {
+        makeDockingStation()
+    }()
+    private lazy var dockingStationBottomLeft: UIView = {
+        makeDockingStation()
+    }()
+
+    private lazy var dockingStations: [UIView] = {
+        [dockingStationTopRight, dockingStationBottomLeft, dockingStationBottomRight]
+    }()
+
+    override func loadView() {
+        view = UIView()
+        view.backgroundColor = .systemBackground
+
+        view.addSubview(dockingStationTopRight)
+        view.addSubview(dockingStationBottomRight)
+        view.addSubview(dockingStationBottomLeft)
+        view.addSubview(movableView)
+
+        let moveGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
+        movableView.addGestureRecognizer(moveGesture)
+    }
+
+    @objc private func reset() {
+        movableView.frame = CGRect(x: view.bounds.width-150, y: 50, width: 100, height: 100)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        DispatchQueue.main.asyncAfter(deadline: .now()+1) {
+            self.movableView.frame = CGRect(x: self.view.bounds.width-150, y: 50, width: 100, height: 100)
+            self.dockingStationTopRight.frame = self.movableView.frame
+            self.dockingStationBottomLeft.frame = CGRect(x: 50, y: self.view.bounds.height-150, width: 100, height: 100)
+            self.dockingStationBottomRight.frame = CGRect(x: self.movableView.frame.origin.x, y: self.view.bounds.height-150, width: 100, height: 100)
+        }
+    }
+
+    private var referencePoint: CGPoint = .zero
+
+    @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
+        let velocity = recognizer.velocity(in: view)
+
+        switch recognizer.state {
+        case .began:
+            animator?.stopAnimation(true)
+
+            referencePoint = recognizer.location(in: movableView)
+        case .changed:
+            let location = recognizer.location(in: view)
+            movableView.origin = location - referencePoint
+        case .ended, .cancelled:
+            snapToClosestDockingStation(from: movableView.origin, with: velocity)
+        default:
+            break
+        }
+    }
+
+    private var animator: UIViewPropertyAnimator?
+
+    private func project(initialVelocity: CGFloat, decelerationRate: CGFloat) -> CGFloat {
+        return (initialVelocity / 1000.0) * decelerationRate / (1.0 - decelerationRate)
+    }
+
+    func projectedTargetPosition(with velocity: CGVector, from position: CGPoint) -> CGPoint {
+        var velocity = velocity
+
+        // We want to reduce movement along the secondary axis of the gesture.
+        if velocity.dx != 0 || velocity.dy != 0 {
+            let velocityInPrimaryDirection = max(abs(velocity.dx), abs(velocity.dy))
+
+            velocity.dx *= abs(velocity.dx / velocityInPrimaryDirection)
+            velocity.dy *= abs(velocity.dy / velocityInPrimaryDirection)
+        }
+
+        let decelerationRate = UIScrollView.DecelerationRate.normal.rawValue
+
+        return CGPoint(
+            x: position.x - 0.001 * velocity.dx / log(decelerationRate),
+            y: position.y - 0.001 * velocity.dy / log(decelerationRate)
+        )
+    }
+
+    private func closestDockingStation(from currentOrigin: CGPoint, with velocity: CGPoint) -> CGPoint {
+        let projectedPosition = projectedTargetPosition(with: CGVector(dx: velocity.x, dy: velocity.y), from: currentOrigin)
+        return dockingStations.min(by: { projectedPosition.distance(to: $0.center) < projectedPosition.distance(to: $1.center) })!.origin
+    }
+
+    private func snapToClosestDockingStation(from currentOrigin: CGPoint, with velocity: CGPoint) {
+        let closest = closestDockingStation(from: currentOrigin, with: velocity)
+        snapToDockingStation(at: closest, with: velocity)
+    }
+
+    private func timingCurve(with velocity: CGVector) -> FluidTimingCurve {
+        let damping: CGFloat = velocity.dy.isZero ? 100 : 30
+
+        return FluidTimingCurve(
+            velocity: velocity,
+            stiffness: 400,
+            damping: damping
+        )
+    }
+
+    private func snapToDockingStation(at position: CGPoint, with velocity: CGPoint) {
+        // the 0.5 is to ensure there's always some distance for the gesture to work with
+        let distanceX = (movableView.frame.origin.x - 0.5) - position.x
+        let distanceY = (movableView.frame.origin.y - 0.5) - position.y
+
+        let initialVelocityX = abs(velocity.x/distanceX)
+        let initialVelocityY = abs(velocity.y/distanceY)
+
+        let timing = timingCurve(with: CGVector(dx: initialVelocityX, dy: initialVelocityY))
+
+        animator = UIViewPropertyAnimator(duration: 2, timingParameters: timing)
+        animator?.addAnimations {
+            self.movableView.origin = position
+        }
+        animator?.startAnimation()
+    }
+
+}
+
+PlaygroundPage.current.liveView = DemoController()
